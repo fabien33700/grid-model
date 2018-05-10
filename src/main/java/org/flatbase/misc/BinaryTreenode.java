@@ -1,70 +1,72 @@
-package org.flatbase.utils;
+package org.flatbase.misc;
 
 import java.util.Optional;
 
-public class BinaryTreenodeBase<T> implements BinaryTreenode<T> {
+public class BinaryTreenode<T> {
     private BinaryTreenode<T> left;
     private BinaryTreenode<T> right;
     private BinaryTreenode<T> parent;
     private T leafValue = null;
 
-    public BinaryTreenodeBase() {}
+    public BinaryTreenode() {}
 
-    public BinaryTreenodeBase(T leafValue) {
+    public BinaryTreenode(T leafValue) {
         this.leafValue = leafValue;
     }
 
-    @Override
     public Optional<BinaryTreenode<T>> left() {
         return Optional.ofNullable(left);
     }
 
-    @Override
     public void setLeft(BinaryTreenode<T> left) {
         left.setParent(this);
         this.left = left;
         this.leafValue = null;
     }
 
-    @Override
     public void setLeft(T leftValue) {
-        setLeft(new BinaryTreenodeBase<>(leftValue));
+        setLeft(new BinaryTreenode<>(leftValue));
     }
 
-    @Override
     public Optional<BinaryTreenode<T>> right() {
         return Optional.ofNullable(right);
     }
 
-    @Override
     public void setRight(BinaryTreenode<T> right) {
         right.setParent(this);
         this.right = right;
         this.leafValue = null;
     }
 
-    @Override
     public void setRight(T rightValue) {
-        setRight(new BinaryTreenodeBase<>(rightValue));
+        setRight(new BinaryTreenode<>(rightValue));
     }
 
-    @Override
     public Optional<T> leafValue() {
         return Optional.ofNullable(leafValue);
     }
 
-    @Override
     public void setLeafValue(T leafValue) {
         this.leafValue = leafValue;
     }
 
-    @Override
     public Optional<BinaryTreenode<T>> parent() {
         return Optional.ofNullable(parent);
     }
 
-    @Override
     public void setParent(BinaryTreenode<T> parent) {
         this.parent = parent;
+    }
+
+    public boolean isRoot() {
+        return !parent().isPresent();
+    }
+
+    public boolean isLeaf() {
+        return !left().isPresent() && !right().isPresent();
+    }
+
+    public boolean hasValue() {
+        return leafValue().isPresent();
     }
 }

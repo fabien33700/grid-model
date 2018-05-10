@@ -1,16 +1,16 @@
 package org.flatbase.query.criteria;
 
-import org.flatbase.index.IndexMap;
-import org.flatbase.utils.BinaryTreenode;
-import org.flatbase.utils.BinaryTreenodeBase;
+import org.flatbase.index.IndexStructure;
+import org.flatbase.misc.BinaryTreenode;
 
 import java.util.List;
+import java.util.Map;
 
 import static java.util.Arrays.asList;
 import static java.util.Collections.emptyList;
-import static org.flatbase.utils.Utils.orElse;
+import static org.flatbase.misc.Utils.orElse;
 
-public class Criteria extends BinaryTreenodeBase<Criterion> {
+public class Criteria extends BinaryTreenode<Criterion> {
 
     private CriteriaOperator operator;
 
@@ -50,7 +50,8 @@ public class Criteria extends BinaryTreenodeBase<Criterion> {
                     orElse(right(), BinaryTreenode<Criterion>::toString, "")));
     }
 
-    public List<Long> combine(IndexMap<Object> sourceIndex) {
+    @SuppressWarnings("unchecked")
+    public List<Long> combine(Map<String, IndexStructure<?>> sourceIndex) {
         if (isLeaf()) {
             return orElse(leafValue(), c -> c.execute(sourceIndex), emptyList());
         }

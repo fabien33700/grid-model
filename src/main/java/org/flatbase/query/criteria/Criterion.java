@@ -1,22 +1,18 @@
 package org.flatbase.query.criteria;
 
-import org.flatbase.index.IndexMap;
+import org.flatbase.index.IndexStructure;
 import org.flatbase.query.QueryException;
 
-import java.util.ArrayList;
 import java.util.List;
-import java.util.NavigableMap;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
+import java.util.Map;
 
-import static java.util.Arrays.asList;
-import static java.util.Collections.emptyList;
+import static org.flatbase.misc.Utils.parseIncompatibleTypes;
 
-public class Criterion {
+public class Criterion<T extends Comparable<T>> {
     private final String columnName;
-    private final CriterionOperation operation;
+    private final CriterionOperation<T> operation;
 
-    Criterion(String columnName, CriterionOperation operation) {
+    Criterion(String columnName, CriterionOperation<T> operation) {
         this.columnName = columnName;
         this.operation = operation;
     }
@@ -34,7 +30,7 @@ public class Criterion {
         return columnName + operation.getDescription();
     }
 
-    public List<Long> execute(IndexMap<Object> sourceIndex)
+    public List<Long> execute(Map<String, IndexStructure<T>> sourceIndex)
     throws QueryException {
         try {
             return operation.getFunction().apply(sourceIndex.get(columnName));
@@ -42,12 +38,5 @@ public class Criterion {
             List<String> types = parseIncompatibleTypes(ex);
             throw new QueryException(types.get(0), types.get(1), columnName);
         }
-    }
-
-    private List<String> parseIncompatibleTypes(ClassCastException ex) {
-        final String REGEX = "(.*) cannot be cast to (.*)";
-        Matcher m = Pattern.compile(REGEX).matcher(ex.getMessage());
-
-        return m.find() ? asList(m.group(1), m.group(2)) : emptyList();
     }
 }

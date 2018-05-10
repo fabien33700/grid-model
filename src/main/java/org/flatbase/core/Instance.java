@@ -1,8 +1,10 @@
 package org.flatbase.core;
 
-import org.flatbase.dataspace.DataSpace;
-import org.flatbase.dataspace.DataSpaceImpl;
-import org.flatbase.index.IndexDefinitionBase;
+import org.flatbase.index.IndexDefinition;
+import org.flatbase.index.IndexStructure;
+import org.flatbase.model.Dataspace;
+import org.flatbase.model.DataspaceImpl;
+import org.flatbase.model.Row;
 import org.flatbase.query.QueryBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -12,55 +14,44 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
-import java.util.*;
 import java.util.function.Function;
+import java.util.stream.Stream;
 
 import static java.lang.System.currentTimeMillis;
-import static java.lang.System.out;
-import static org.flatbase.utils.Utils.isEmpty;
-import static org.flatbase.utils.Utils.split;
-import static org.flatbase.utils.Utils.format;
+import static org.flatbase.misc.Utils.isEmpty;
 
+/**
+ * A Flatbase instance.
+ * @author Fabien
+ */
 public class Instance {
 
     private static final String CSV_SEPARATOR = ";";
     private static final String MESSAGE_INJECTED = "File {} injected - {} row(s) proceeded in {} ms.";
-    private static final String ENABLED_DEBUG = "Debugging logs enabled.";
+
+    private final Logger logger = LoggerFactory.getLogger(getClass());
 
     private Configuration configuration;
-    private DataSpace dataspace;
-
+    private Dataspace dataspace;
     private boolean booted = false;
-    private boolean debug = false;
-
-    private Logger logger;
 
     Instance() {
         configuration = new Configuration();
-        dataspace = new DataSpaceImpl();
+        dataspace = new DataspaceImpl();
     }
 
-    public void debug(String message, Object... args) {
-        if (!debug) return;
-
-        if (logger == null)
-            logger = LoggerFactory.getLogger(getClass());
-
-        logger.debug(message, args);
-    }
-
-    public DataSpace dataspace() {
+    public Dataspace dataspace() {
         return dataspace;
     }
 
     @SuppressWarnings("unchecked")
-    public <T> Instance index(String columnName,
-                              Function<String, T> adapter,
-                              Comparator<T> comparator) {
+    public <T extends Comparable<T>> Instance index(
+            String columnName,
+            Function<String, T> adapter) {
         if (booted) {
             throw new IllegalStateException("An already booted instance cannot be configured anymore.");
         }
-        configuration.indexDefs().put(columnName, new IndexDefinitionBase<>(adapter, comparator));
+        configuration.indexes().put(columnName, new IndexDefinition<>(columnName, adapter));
         return this;
     }
 
@@ -86,53 +77,51 @@ public class Instance {
 
     private void inject0(URI sourceUris) throws IOException {
         File sourceFile = prepareFileObject(sourceUris);
+        initIndexStructures();
         processInjection(sourceFile);
+    }
+
+    private void initIndexStructures() {
+        configuration.indexes().forEach((name, definition) ->
+            dataspace.structures().put(name, new IndexStructure<>(definition)));
     }
 
     @SuppressWarnings("unchecked")
     private void processInjection(File sourceFile) {
         booted = true;
-
+        long count = dataspace.rowCount();
         long start = currentTimeMillis();
-        long volume = dataspace.volume();
         try (
                 BufferedReader reader = new BufferedReader(
                         new FileReader(sourceFile)))
         {
             String line = reader.readLine();
-            List<String> columns = split(line, CSV_SEPARATOR);
+            Stream.of(line.split(CSV_SEPARATOR))
+                    .forEachOrdered(dataspace.columns()::add);
 
             while ((line = reader.readLine()) != null) {
-                List<String> values = split(line, CSV_SEPARATOR);
-                Map<String, String> valuesMap = new HashMap<>();
+                long rowIndex = dataspace.nextVal();
+                String[] values = line.split(CSV_SEPARATOR);
+                Row row = new Row();
+                for (int i = 0; i < values.length; i++) {
+                    String columnName = dataspace.columns().get(i);
+                    row.put(columnName, values[i]);
 
-                Iterator<String> itColumns = columns.iterator();
-                Iterator<String> itValues = values.iterator();
-
-                while (itColumns.hasNext() && itValues.hasNext()) {
-                    String nextColumn = itColumns.next();
-                    String nextValue = itValues.next();
-                    if (!isEmpty(nextValue)) {
-                        valuesMap.put(nextColumn, nextValue.trim());
+                    if (dataspace.structures().containsKey(columnName) &&
+                        !isEmpty(values[i])) {
+                        dataspace.structures().get(columnName)
+                                .append(values[i], rowIndex);
                     }
                 }
-                dataspace.incSequence();
 
-                valuesMap.keySet().stream()
-                    .filter(configuration.indexDefs()::containsKey)
-                    .filter(valuesMap::containsKey)
-                    .forEachOrdered(c -> dataspace.index()
-                            .putIndexData(c, dataspace.sequence(),
-                                    valuesMap.get(c), configuration.indexDefs().get(c)));
-
-                dataspace.data().put(dataspace.sequence(), valuesMap);
-                dataspace.columns().addAll(columns);
+                // Custom columns
+                dataspace.data().put(rowIndex, row);
             }
         } catch (IOException ex) {
             ex.printStackTrace();
         }
-        volume = dataspace.volume() - volume;
-        debug(MESSAGE_INJECTED, sourceFile.getName(), volume, currentTimeMillis() - start);
+        count = dataspace.rowCount() - count;
+        logger.debug(MESSAGE_INJECTED, sourceFile.getName(), count, currentTimeMillis() - start);
     }
 
 
@@ -142,11 +131,5 @@ public class Instance {
             throw new FileNotFoundException(sourceUri.toString());
         }
         return new File(sourceUri);
-    }
-
-    public Instance enableDebug() {
-        debug = true;
-        debug(ENABLED_DEBUG);
-        return this;
     }
 }

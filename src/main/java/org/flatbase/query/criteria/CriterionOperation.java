@@ -1,19 +1,19 @@
 package org.flatbase.query.criteria;
 
+import org.flatbase.index.IndexStructure;
+
 import java.util.List;
-import java.util.NavigableMap;
 import java.util.function.Function;
-import java.util.function.UnaryOperator;
 
-public final class CriterionOperation  {
+public final class CriterionOperation<T extends Comparable<T>>  {
 
-    interface OperationFunction extends Function<NavigableMap<Object, List<Long>>, List<Long>> {}
+    interface OperationFn<T extends Comparable<T>> extends Function<IndexStructure<T>, List<Long>> {}
 
     private final String description;
-    private final OperationFunction operation;
+    private final OperationFn<T> operation;
 
     CriterionOperation(String description,
-                       OperationFunction operation) {
+                       OperationFn<T> operation) {
         this.description = description;
         this.operation = operation;
     }
@@ -22,11 +22,11 @@ public final class CriterionOperation  {
         return description;
     }
 
-    public OperationFunction getFunction() {
+    public OperationFn<T> getFunction() {
         return operation;
     }
 
-    public Criterion assign(String columnName) {
-        return new Criterion(columnName, this);
+    public Criterion<T> assign(String columnName) {
+        return new Criterion<>(columnName, this);
     }
 }

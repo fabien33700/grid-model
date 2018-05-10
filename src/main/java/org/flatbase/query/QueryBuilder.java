@@ -1,26 +1,30 @@
 package org.flatbase.query;
 
 import org.flatbase.core.Instance;
+import org.flatbase.model.Row;
 import org.flatbase.query.criteria.Criteria;
 import org.flatbase.query.criteria.CriteriaOperator;
 import org.flatbase.query.criteria.Criterion;
 import org.flatbase.query.criteria.CriterionOperation;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
 import static java.lang.System.currentTimeMillis;
 import static java.util.Arrays.asList;
-import static java.util.Collections.unmodifiableList;
 import static java.util.stream.Collectors.toMap;
-import static org.flatbase.utils.Utils.format;
+import static org.flatbase.misc.Utils.format;
 
 public class QueryBuilder {
 
     private static final String NOT_INDEXED_COLUMN = "Querying is only possible on indexed columns, {} is not one.";
     private static final String NO_PRIOR_WHERE = "Logical operators cannot be used without a prior use of where() clause.";
+    private static final String SEVERAL_WHERE = "The where() clause must be unique and the first statement of all queries.";
+
+    private final Logger logger = LoggerFactory.getLogger(getClass());
 
     private Instance instance;
     private List<String> columns;
@@ -38,7 +42,7 @@ public class QueryBuilder {
         checkColumnIndexation(columnName);
 
         if (!criteria.isLeaf() || criteria.hasValue())
-            throw new IllegalStateException("The where() clause must be unique and the first statement of all queries.");
+            throw new IllegalStateException(SEVERAL_WHERE);
 
         criteria.setLeafValue(criterion.assign(columnName));
         return this;
@@ -46,7 +50,8 @@ public class QueryBuilder {
 
     private void checkColumnIndexation(String columnName)
             throws UnsupportedOperationException {
-        if (!instance.dataspace().index().hasColumn(columnName))
+
+        if (!instance.dataspace().structures().containsKey(columnName))
             throw new UnsupportedOperationException(format(NOT_INDEXED_COLUMN, columnName));
     }
 
@@ -90,68 +95,48 @@ public class QueryBuilder {
         return this;
     }
 
-
-
-
-    private Map<String, String> selectColumns(Map<String, String> sourceMap) {
+    private Row selectColumns(Row sourceMap) {
         return (columns.isEmpty()) ? sourceMap :
-                sourceMap.entrySet().stream()
-                .filter(entry -> columns.contains(entry.getKey()))
-                .collect(toMap(Map.Entry::getKey, Map.Entry::getValue));
+                new Row(sourceMap.entrySet().stream()
+                        .filter(entry -> columns.contains(entry.getKey()))
+                        .collect(toMap(Map.Entry::getKey, Map.Entry::getValue)));
     }
 
     @SuppressWarnings("unchecked")
-    public List<Object> list() {
+    private List<Row> rawList() {
         long start = currentTimeMillis();
-        List<Object> results = new ArrayList<>();
-
-        Map<Criterion, List<Long>> matches = new HashMap<>();
-        extractCriteria(criteria, matches);
-
         List<Long> primaries = new ArrayList<>();
 
         Criteria cursor = criteria;
         if (cursor.isLeaf()) {
             if (cursor.leafValue().isPresent()) {
                 Criterion criterion = cursor.leafValue().get();
-                primaries.addAll(criterion.execute(instance.dataspace().index()));
+                primaries.addAll(criterion.execute(instance.dataspace().structures()));
             }
         } else {
-            primaries.addAll(criteria.combine(instance.dataspace().index()));
+            primaries.addAll(criteria.combine(instance.dataspace().structures()));
         }
 
-        primaries.stream().map(instance.dataspace().data()::get)
-                .map(this::selectColumns)
-                .forEachOrdered(results::add);
-
-
-
-        /* Partie à déplacer */
-        /*NavigableMap<Object, List<Long>> filteredMap;
-        try {
-            filteredMap = comp.apply(indexMap.get(columnName));
-        } catch (ClassCastException ex) {
-            List<String> types = parseIncompatibleTypes(ex);
-            throw new QueryException(types.get(0), types.get(1), columnName);
+        List<Row> results = new ArrayList<>();
+        if (!primaries.isEmpty()) {
+            primaries.stream().map(instance.dataspace().data()::get)
+                    .map(this::selectColumns)
+                    .forEachOrdered(results::add);
+        } else {
+            results.addAll(instance.dataspace().data().values());
         }
 
-        List<Long> primaries = filteredMap
-                .values()
-                .stream()
-                .flatMap(List::stream)
-                .collect(Collectors.toList());
-
-        primaries.stream().map(instance.dataspace().data()::get)
-                .map(this::selectColumns)
-                .forEachOrdered(results::add);
-        return Collections.unmodifiableList(results);*/
-        instance.debug("Query `{}` executed in {} ms, {} row(s) returned.",
+        logger.debug("\nQuery :\t{}\nExecution time :\t {} ms\nRows count : \t{}",
                 criteria.toString(), currentTimeMillis() - start, results.size());
-        return unmodifiableList(results);
+        return results;
     }
 
-
-    private void extractCriteria(Criteria currentCriteria, Map<Criterion,List<Long>> matches) {
-
+    public List<Row> list() {
+        return rawList();
     }
+
+    public <T> List<T> list(ResultTransformer<T> transformer) {
+        return transformer.transformRows(rawList());
+    }
+
 }

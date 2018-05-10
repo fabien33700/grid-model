@@ -12,7 +12,7 @@ public class Configuration {
         this.indexes = new HashMap<>();
     }
 
-    Map<String, IndexDefinition<?>> indexDefs() {
+    Map<String, IndexDefinition<?>> indexes() {
         return indexes;
     }
 }
