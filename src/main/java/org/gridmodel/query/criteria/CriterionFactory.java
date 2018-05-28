@@ -1,4 +1,4 @@
-package org.flatbase.query.criteria;
+package org.gridmodel.query.criteria;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;

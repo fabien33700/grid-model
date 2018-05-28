@@ -1,4 +1,4 @@
-package org.flatbase.model;
+package org.gridmodel.core.model;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -8,7 +8,7 @@ public class Row extends HashMap<String, Object> {
         super();
     }
 
-    public Row(Map<? extends String, ?> m) {
+    public Row(Map<String, ?> m) {
         super(m);
     }
 }

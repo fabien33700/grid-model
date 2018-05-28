@@ -1,7 +1,8 @@
-package org.flatbase.misc;
+package org.gridmodel.core.model;
 
 import java.util.Optional;
 
+@SuppressWarnings("ALL")
 public class BinaryTreenode<T> {
     private BinaryTreenode<T> left;
     private BinaryTreenode<T> right;
@@ -69,4 +70,7 @@ public class BinaryTreenode<T> {
     public boolean hasValue() {
         return leafValue().isPresent();
     }
+
+    public boolean isEmpty() { return isRoot() && !hasValue()
+            && !left().isPresent() && !right().isPresent(); }
 }

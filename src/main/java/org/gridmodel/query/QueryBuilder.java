@@ -1,22 +1,24 @@
-package org.flatbase.query;
+package org.gridmodel.query;
 
-import org.flatbase.core.Instance;
-import org.flatbase.model.Row;
-import org.flatbase.query.criteria.Criteria;
-import org.flatbase.query.criteria.CriteriaOperator;
-import org.flatbase.query.criteria.Criterion;
-import org.flatbase.query.criteria.CriterionOperation;
+import org.gridmodel.core.Instance;
+import org.gridmodel.core.model.Row;
+import org.gridmodel.query.criteria.Criteria;
+import org.gridmodel.query.criteria.CriteriaOperator;
+import org.gridmodel.query.criteria.Criterion;
+import org.gridmodel.query.criteria.CriterionOperation;
+import org.gridmodel.query.results.ResultStore;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 import static java.lang.System.currentTimeMillis;
 import static java.util.Arrays.asList;
 import static java.util.stream.Collectors.toMap;
-import static org.flatbase.misc.Utils.format;
+import static org.gridmodel.Utils.format;
 
 public class QueryBuilder {
 
@@ -26,8 +28,8 @@ public class QueryBuilder {
 
     private final Logger logger = LoggerFactory.getLogger(getClass());
 
-    private Instance instance;
-    private List<String> columns;
+    private final Instance instance;
+    private final List<String> columns;
     private Criteria criteria;
 
 
@@ -51,7 +53,7 @@ public class QueryBuilder {
     private void checkColumnIndexation(String columnName)
             throws UnsupportedOperationException {
 
-        if (!instance.dataspace().structures().containsKey(columnName))
+        if (!instance.dataspace().indexesTrees().containsKey(columnName))
             throw new UnsupportedOperationException(format(NOT_INDEXED_COLUMN, columnName));
     }
 
@@ -103,40 +105,40 @@ public class QueryBuilder {
     }
 
     @SuppressWarnings("unchecked")
-    private List<Row> rawList() {
+    public ResultStore fetch() {
         long start = currentTimeMillis();
         List<Long> primaries = new ArrayList<>();
 
         Criteria cursor = criteria;
-        if (cursor.isLeaf()) {
+        if (cursor.isEmpty()) {
+            primaries.addAll(instance.dataspace().data().keySet());
+        } else if (cursor.isLeaf()) {
             if (cursor.leafValue().isPresent()) {
                 Criterion criterion = cursor.leafValue().get();
-                primaries.addAll(criterion.execute(instance.dataspace().structures()));
+                primaries.addAll(criterion.execute(instance.dataspace().indexesTrees()));
             }
         } else {
-            primaries.addAll(criteria.combine(instance.dataspace().structures()));
+            primaries.addAll(criteria.combine(instance.dataspace().indexesTrees()));
         }
 
-        List<Row> results = new ArrayList<>();
-        if (!primaries.isEmpty()) {
-            primaries.stream().map(instance.dataspace().data()::get)
-                    .map(this::selectColumns)
-                    .forEachOrdered(results::add);
-        } else {
-            results.addAll(instance.dataspace().data().values());
-        }
+        List<Row> results = primaries.stream()
+                .map(instance.dataspace().data()::get)
+                .map(this::selectColumns)
+                .collect(Collectors.toList());
 
-        logger.debug("\nQuery :\t{}\nExecution time :\t {} ms\nRows count : \t{}",
-                criteria.toString(), currentTimeMillis() - start, results.size());
-        return results;
+        long execTime = currentTimeMillis() - start;
+        long count = primaries.size();
+        String query = criteria.toString();
+
+        return new ResultStore(results, execTime, count, query, columns);
     }
 
-    public List<Row> list() {
+    /*public List<Row> list() {
         return rawList();
     }
 
     public <T> List<T> list(ResultTransformer<T> transformer) {
         return transformer.transformRows(rawList());
     }
-
+*/
 }

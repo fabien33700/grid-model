@@ -1,12 +1,12 @@
-package org.flatbase.query.criteria;
+package org.gridmodel.query.criteria;
 
-import org.flatbase.index.IndexStructure;
-import org.flatbase.query.QueryException;
+import org.gridmodel.index.IndexTree;
+import org.gridmodel.query.QueryException;
 
 import java.util.List;
 import java.util.Map;
 
-import static org.flatbase.misc.Utils.parseIncompatibleTypes;
+import static org.gridmodel.Utils.parseIncompatibleTypes;
 
 public class Criterion<T extends Comparable<T>> {
     private final String columnName;
@@ -30,7 +30,7 @@ public class Criterion<T extends Comparable<T>> {
         return columnName + operation.getDescription();
     }
 
-    public List<Long> execute(Map<String, IndexStructure<T>> sourceIndex)
+    public List<Long> execute(Map<String, IndexTree<?, T>> sourceIndex)
     throws QueryException {
         try {
             return operation.getFunction().apply(sourceIndex.get(columnName));

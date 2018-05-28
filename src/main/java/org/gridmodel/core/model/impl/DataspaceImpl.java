@@ -1,20 +1,28 @@
-package org.flatbase.model;
+package org.gridmodel.core.model.impl;
 
-import org.flatbase.index.IndexStructure;
+import org.gridmodel.core.model.Dataspace;
+import org.gridmodel.core.model.Row;
+import org.gridmodel.index.IndexTree;
 
 import java.util.*;
 
+/**
+ *
+ */
 public class DataspaceImpl implements Dataspace {
+    /**
+     *
+     */
     private long sequence = 0L;
 
     private final List<String> columns;
     private final NavigableMap<Long, Row> data;
-    private final Map<String, IndexStructure<?>> structures;
+    private final Map<String, IndexTree<?, ?>> indexesTrees;
 
     public DataspaceImpl() {
         columns = new ArrayList<>();
         data = new TreeMap<>(Long::compareTo);
-        structures = new HashMap<>();
+        indexesTrees = new HashMap<>();
     }
 
     @Override
@@ -28,8 +36,8 @@ public class DataspaceImpl implements Dataspace {
     }
 
     @Override
-    public Map<String, IndexStructure<?>> structures() {
-        return structures;
+    public Map<String, IndexTree<?, ?>> indexesTrees() {
+        return indexesTrees;
     }
 
     @Override

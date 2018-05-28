@@ -1,6 +1,6 @@
-package org.flatbase.model;
+package org.gridmodel.core.model;
 
-import org.flatbase.index.IndexStructure;
+import org.gridmodel.index.IndexTree;
 
 import java.util.List;
 import java.util.Map;
@@ -11,7 +11,7 @@ public interface Dataspace {
 
     NavigableMap<Long, Row> data();
 
-    Map<String, IndexStructure<?>> structures();
+    Map<String, IndexTree<?, ?>> indexesTrees();
 
     long nextVal();
 

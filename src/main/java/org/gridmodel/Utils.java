@@ -1,4 +1,4 @@
-package org.flatbase.misc;
+package org.gridmodel;
 
 import java.util.Iterator;
 import java.util.List;
@@ -9,6 +9,7 @@ import java.util.regex.Pattern;
 
 import static java.util.Arrays.asList;
 import static java.util.Collections.emptyList;
+import static java.util.regex.Pattern.quote;
 
 public class Utils {
 
@@ -24,7 +25,7 @@ public class Utils {
         while (it.hasNext() && result.contains(PLACEHOLDER)) {
             Object arg = it.next();
             String repr = arg == null ? "" : arg.toString();
-            result = result.replaceFirst(Pattern.quote(PLACEHOLDER), repr);
+            result = result.replaceFirst(quote(PLACEHOLDER), repr);
         }
 
         return result;

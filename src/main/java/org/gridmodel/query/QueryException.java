@@ -1,4 +1,4 @@
-package org.flatbase.query;
+package org.gridmodel.query;
 
 import static java.lang.String.format;
 

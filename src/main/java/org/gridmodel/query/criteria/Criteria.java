@@ -1,14 +1,14 @@
-package org.flatbase.query.criteria;
+package org.gridmodel.query.criteria;
 
-import org.flatbase.index.IndexStructure;
-import org.flatbase.misc.BinaryTreenode;
+import org.gridmodel.core.model.BinaryTreenode;
+import org.gridmodel.index.IndexTree;
 
 import java.util.List;
 import java.util.Map;
 
 import static java.util.Arrays.asList;
 import static java.util.Collections.emptyList;
-import static org.flatbase.misc.Utils.orElse;
+import static org.gridmodel.Utils.orElse;
 
 public class Criteria extends BinaryTreenode<Criterion> {
 
@@ -51,7 +51,7 @@ public class Criteria extends BinaryTreenode<Criterion> {
     }
 
     @SuppressWarnings("unchecked")
-    public List<Long> combine(Map<String, IndexStructure<?>> sourceIndex) {
+    public List<Long> combine(Map<String, IndexTree<?, ?>> sourceIndex) {
         if (isLeaf()) {
             return orElse(leafValue(), c -> c.execute(sourceIndex), emptyList());
         }

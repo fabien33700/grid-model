@@ -1,4 +1,4 @@
-package org.flatbase.query.criteria;
+package org.gridmodel.query.criteria;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -10,12 +10,13 @@ public enum CriteriaOperator {
     OR  (CriteriaOperator::union),
     XOR (CriteriaOperator::symmetricDiff);
 
-    BinaryOperator<List<Long>> combinator;
+    final BinaryOperator<List<Long>> combinator;
 
     CriteriaOperator(BinaryOperator<List<Long>> combinator) {
         this.combinator = combinator;
     }
 
+    @SuppressWarnings("unused")
     public BinaryOperator<List<Long>> getCombinator() {
         return combinator;
     }
