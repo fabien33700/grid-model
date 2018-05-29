@@ -6,7 +6,7 @@ import org.gridmodel.query.QueryException;
 import java.util.List;
 import java.util.Map;
 
-import static org.gridmodel.Utils.parseIncompatibleTypes;
+import static org.gridmodel.misc.Utils.parseIncompatibleTypes;
 
 public class Criterion<T extends Comparable<T>> {
     private final String columnName;

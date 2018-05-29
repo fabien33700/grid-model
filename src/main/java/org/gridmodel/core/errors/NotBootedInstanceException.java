@@ -1,8 +1,8 @@
 package org.gridmodel.core.errors;
 
-public class NotBootedInstance extends GridModelException {
+public class NotBootedInstanceException extends GridModelException {
 
-    public NotBootedInstance() {
+    public NotBootedInstanceException() {
         super("The instance isn't booted yet. Please add at least one file to process with append().");
     }
 }

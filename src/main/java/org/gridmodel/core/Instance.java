@@ -1,12 +1,13 @@
 package org.gridmodel.core;
 
-import org.gridmodel.core.errors.AlreadyBootedInstance;
-import org.gridmodel.core.errors.NotBootedInstance;
+import org.gridmodel.core.errors.AlreadyBootedInstanceException;
+import org.gridmodel.core.errors.NotBootedInstanceException;
 import org.gridmodel.core.model.CustomColumn;
 import org.gridmodel.core.model.Dataspace;
 import org.gridmodel.core.model.ExtractionContext;
 import org.gridmodel.core.model.Row;
 import org.gridmodel.core.model.impl.DataspaceImpl;
+import org.gridmodel.core.model.sources.Source;
 import org.gridmodel.index.IndexAdapter;
 import org.gridmodel.index.IndexTree;
 import org.gridmodel.index.impl.ColumnIndexTree;
@@ -15,19 +16,23 @@ import org.gridmodel.query.QueryBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.*;
-import java.net.URI;
-import java.net.URISyntaxException;
-import java.nio.file.Files;
-import java.nio.file.Paths;
-import java.util.stream.Stream;
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 
 import static java.lang.System.currentTimeMillis;
-import static org.gridmodel.Utils.isEmpty;
+import static java.util.Arrays.asList;
 import static org.gridmodel.core.model.ExtractionContext.build;
+import static org.gridmodel.misc.Utils.*;
 
 /**
  * A GridModel instance.
+ *   Represents the memory model containing data imported from CSV file,
+ *   and also all the tools that allows to querying and presenting those data.
+ *   (developed for educational purposes)
  *
  * @author Fabien
  */
@@ -81,7 +86,7 @@ public class Instance {
     public <T extends Comparable<T>> Instance index(
             String columnName, IndexAdapter<T> adapter) {
         if (booted) {
-            throw new AlreadyBootedInstance();
+            throw new AlreadyBootedInstanceException();
         }
         configuration.indexes().put(columnName, adapter);
         return this;
@@ -97,7 +102,7 @@ public class Instance {
     public <T extends Comparable<T>> Instance custom(
             String columnName, CustomColumn<T> adapter) {
         if (booted) {
-            throw new AlreadyBootedInstance();
+            throw new AlreadyBootedInstanceException();
         }
         configuration.customColumns().put(columnName, adapter);
         return this;
@@ -110,70 +115,68 @@ public class Instance {
      */
     public QueryBuilder query(String... columns) {
         if (!this.booted) {
-            throw new NotBootedInstance();
+            throw new NotBootedInstanceException();
         }
         return new QueryBuilder(this, columns);
     }
 
     /**
-     * Appends a CSV source file to the instance, by loading it
-     *   from class resources.
-     * @param target The class in which search resources to load
-     * @param sources An array of the sources to load
-     * @return The instance
-     * @throws URISyntaxException The given URI is not valid
-     * @throws IOException The resource could not be loaded
+     * Query the instance, returning a query builder.
+     * @param columns The columns to select (iterable)
+     * @return A QueryBuilder bound to the instance
      */
-    public Instance append(Class<?> target, String... sources)
-            throws URISyntaxException, IOException {
-        for (String resource : sources) {
-            append(target.getResource(resource).toURI());
-        }
-        return this;
+    public QueryBuilder query(Iterable<String> columns) {
+        String[] arrayColumns = fromIterable(columns, ArrayList::new).toArray(new String[] {});
+        return query(arrayColumns);
     }
 
     /**
      * Appends a CSV source file to the instance, by loading it
      *   from filenames.
-     * @param sourceFilenames An array of the sources to load
+     * @param source The source to load
      * @return The instance
-     * @throws URISyntaxException The given URI is not valid
      * @throws IOException The resource could not be loaded
      */
-    public Instance append(String... sourceFilenames) throws URISyntaxException, IOException {
-        for (String sourceFilename : sourceFilenames) {
-            append(new URI(sourceFilename));
+    public Instance append(Source source) throws IOException {
+        if (!booted) {
+            initIndexStructure();
+            booted = true;
         }
+
+        processInjection(source);
         return this;
     }
 
-    private void append(URI sourceUris) throws IOException {
-        File sourceFile = prepareFileObject(sourceUris);
-        // init index structures
+    public Instance append(Iterable<Source> sources) throws IOException {
+        for (Source source : sources)
+            append(source);
+
+        return this;
+    }
+
+    private void initIndexStructure() {
         configuration.indexes().forEach((name, adapter) ->
                 dataspace.indexesTrees().put(name, new ColumnIndexTree<>(name, adapter)));
 
         configuration.customColumns().forEach((name, custom) ->
                 dataspace.indexesTrees().put(name, new CustomIndexTree<>(name, custom)));
-
-        processInjection(sourceFile);
     }
 
     /**
      * Process the injection of the given file.
-     * @param sourceFile The file from which inject data
+     * @param source The data source from which inject data
      */
     @SuppressWarnings("unchecked")
-    private void processInjection(File sourceFile) {
-        booted = true;
+    private void processInjection(Source source) throws IOException {
         long count = dataspace.rowCount();
         long start = currentTimeMillis();
 
         // Opening the file
-        try (BufferedReader reader = new BufferedReader(new FileReader(sourceFile)))
+        try (BufferedReader reader = new BufferedReader(new InputStreamReader(source.dataStream())))
         {
+
             String line = reader.readLine();
-            Stream.of(line.split(CSV_SEPARATOR)).forEachOrdered(dataspace::addColumn);
+            List<String> injectedColumns = new ArrayList<>(asList(line.split(CSV_SEPARATOR)));
 
             // For each file line
             while ((line = reader.readLine()) != null) {
@@ -183,12 +186,14 @@ public class Instance {
 
                 // For each values
                 for (int i = 0; i < values.length; i++) {
-                    String columnName = dataspace.columns().get(i);
+                    String columnName = injectedColumns.get(i);
                     row.put(columnName, values[i]);
 
                     // Index
-                    if (dataspace.indexesTrees().containsKey(columnName) &&
-                            !isEmpty(values[i])) {
+                    if (dataspace.indexesTrees().containsKey(columnName) && // current column is indexed
+                            !isEmpty(values[i]) && // current row has a value
+                            !configuration.customColumns().keySet().contains(columnName))  // current column is not custom
+                    {
                         IndexTree<String, ?> tree =
                                 (IndexTree<String, ?>) dataspace.indexesTrees().get(columnName);
                         tree.append(values[i], rowIndex);
@@ -196,7 +201,7 @@ public class Instance {
                 }
                 // Custom columns
                 configuration.customColumns().forEach((name, custom) -> {
-                    ExtractionContext ctx = build(sourceFile.getName(), name, rowIndex);
+                    ExtractionContext ctx = build(source.name(), name, rowIndex);
                     IndexTree<ExtractionContext, ?> tree =
                             (IndexTree<ExtractionContext, ?>) dataspace.indexesTrees().get(name);
                     tree.append(ctx, rowIndex);
@@ -208,21 +213,16 @@ public class Instance {
                 // Adding the row
                 dataspace.data().put(rowIndex, row);
             }
-        } catch (IOException ex) {
-            ex.printStackTrace();
-        }
-        count = dataspace.rowCount() - count;
-        logger.debug(MESSAGE_INJECTED, sourceFile.getName(), count, currentTimeMillis() - start);
-    }
 
-    private File prepareFileObject(URI sourceUri) throws IOException {
-        try {
-            if (!Files.exists(Paths.get(sourceUri))) {
-                throw new FileNotFoundException(sourceUri.toString());
-            }
-            return new File(sourceUri);
-        } catch (IllegalArgumentException ex) {
-            throw new FileNotFoundException(sourceUri.toString());
+            // Merging the new columns in the dataspace's columns
+            injectedColumns.stream()
+                    .filter(not(dataspace.columns()::contains))
+                    .forEachOrdered(dataspace.columns()::add);
+
+            Collections.sort(dataspace.columns());
         }
+
+        count = dataspace.rowCount() - count;
+        logger.debug(MESSAGE_INJECTED, source.name(), count, currentTimeMillis() - start);
     }
 }

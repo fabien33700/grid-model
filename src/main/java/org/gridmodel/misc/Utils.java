@@ -1,9 +1,12 @@
-package org.gridmodel;
+package org.gridmodel.misc;
 
+import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
 import java.util.function.Function;
+import java.util.function.Predicate;
+import java.util.function.Supplier;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -46,4 +49,13 @@ public class Utils {
         return m.find() ? asList(m.group(1), m.group(2)) : emptyList();
     }
 
+    public static <T> Predicate<T> not(final Predicate<T> predicate) {
+        return predicate.negate();
+    }
+
+    public static <T> Collection<T> fromIterable(Iterable<T> iterable, Supplier<Collection<T>> factory) {
+        Collection<T> collection = factory.get();
+        iterable.iterator().forEachRemaining(collection::add);
+        return collection;
+    }
 }

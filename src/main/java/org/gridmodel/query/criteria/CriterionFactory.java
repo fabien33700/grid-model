@@ -4,13 +4,14 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.List;
+import java.util.Map;
 import java.util.NavigableMap;
 import java.util.Set;
 import java.util.stream.Collectors;
 
 public class CriterionFactory {
 
-    private static <T> List<Long> extract(NavigableMap<T,Set<Long>> nmap) {
+    private static <T> List<Long> extract(NavigableMap<T, Set<Long>> nmap) {
         return nmap.values()
                 .stream()
                 .flatMap(Set::stream)
@@ -22,8 +23,6 @@ public class CriterionFactory {
         return new CriterionOperation<>(" >= " + referenceValue,
                 nmap -> extract(nmap.tailMap(referenceValue, true)));
     }
-
-
 
     public static <T extends Comparable<T>> CriterionOperation<T>
     greaterThan(T referenceValue) {
@@ -41,6 +40,16 @@ public class CriterionFactory {
     lesserThan(T referenceValue) {
         return new CriterionOperation<>(" < " + referenceValue,
                 nmap -> extract(nmap.headMap(referenceValue, false)));
+    }
+
+    public static <T extends Comparable<T>> CriterionOperation<T>
+    includedIn(List<T> referenceValues) {
+        return new CriterionOperation<>(" in " + referenceValues.toString(),
+                nmap -> nmap.entrySet().stream()
+                    .filter(entry -> referenceValues.contains(entry.getKey()))
+                    .map(Map.Entry::getValue)
+                    .flatMap(Set::stream)
+                    .collect(Collectors.toList()));
     }
 
     public static <T extends Comparable<T>> CriterionOperation<T>
@@ -70,6 +79,4 @@ public class CriterionFactory {
                 LocalDateTime.of(day, LocalTime.of(23, 59)), true)
             .getFunction());
     }
-
-
 }

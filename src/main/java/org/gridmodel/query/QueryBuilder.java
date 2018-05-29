@@ -18,7 +18,7 @@ import java.util.stream.Collectors;
 import static java.lang.System.currentTimeMillis;
 import static java.util.Arrays.asList;
 import static java.util.stream.Collectors.toMap;
-import static org.gridmodel.Utils.format;
+import static org.gridmodel.misc.Utils.format;
 
 public class QueryBuilder {
 
@@ -35,7 +35,9 @@ public class QueryBuilder {
 
     public QueryBuilder(Instance instance, String... columns) {
         this.instance = instance;
-        this.columns = asList(columns);
+        this.columns = (columns.length > 0) ?
+            asList(columns) : new ArrayList<>(instance.dataspace().columns());
+
         this.criteria = new Criteria();
     }
 
@@ -132,13 +134,4 @@ public class QueryBuilder {
 
         return new ResultStore(results, execTime, count, query, columns);
     }
-
-    /*public List<Row> list() {
-        return rawList();
-    }
-
-    public <T> List<T> list(ResultTransformer<T> transformer) {
-        return transformer.transformRows(rawList());
-    }
-*/
 }

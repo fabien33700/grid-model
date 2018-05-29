@@ -8,7 +8,7 @@ import java.util.Map;
 
 import static java.util.Arrays.asList;
 import static java.util.Collections.emptyList;
-import static org.gridmodel.Utils.orElse;
+import static org.gridmodel.misc.Utils.orElse;
 
 public class Criteria extends BinaryTreenode<Criterion> {
 
